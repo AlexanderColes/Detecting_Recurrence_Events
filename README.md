@@ -30,7 +30,7 @@ The method of recording the Drug Regimen for each treatment within a patients EH
 |BEVA_15MG/KG 6W (C)|Bevacizumab|
 
 ## Using our Models
-
+### Loading Models
 The models were developed in R studio and are saved as RDS objetcs. Once downloaded You can load the models into R using the following R code.
 ``` R
 FinalRandomForestModel <- readRDS("FinalRandomForestModel.rds")
@@ -53,6 +53,7 @@ library(party)
 ```
 The Logistic Regression model is a Generlised Linear model as found in base R.
 
+### Preprocessing Your Data for Input
 The inputs to these models are the three vraibels descibed ealrier. These are the days between current and previous chemotherapy treatment(Days.Btw.Treatments), the Drug Regimen Group Label of that treatement (Drug.Group) and finaly the Drug Regimen Group Label of the previous treatment (Previous.Drug.Group).
 
 IF you have a Chemotherapy treatment table like the below example.
@@ -85,6 +86,18 @@ You will need to convert it to a table like that below with the relevant inputs 
 |B|28|Carboplatin/Paclitaxel|Carboplatin/Paclitaxel|
 
 
+### Predicting with the Machine Learning Models
+
+Once you have preprocessed your data into the required input fields you can use the trained ML models to identfiy recurrence events in your data using the code below.
+The tree based models can be used to give a probablity of a recurrence event for each event or a classification label of 1 = recurrence event and 0 = not a recurrence event. Below the three tree based models are providing a classification label due to their repsonse "type" being defined as repsonse and class respectively.
+The Logistic Rgeression models outputs a probability of each event being a recurrence event, the round function surrounding the predict function applies a threshold of 0.5 so that any probabilty greater than or equal to 0.5 is classified as a recurrence event.
+
+```R
+pred1 = predict(FinalRandomForestModel, newdata=YourDataFrame, type="response")
+pred2 = predict(FinalConditionalInferenceTreeModel, newdata=YourDataFrame, type="response")
+pred3 = predict(FinalDecisionTreeModel, newdata=YourDataFrame, type="class")
+pred4 = round(predict(FinalLogisticRegressionModel, newdata=YourDataFrame, type="response"))
+```
 
 
 
