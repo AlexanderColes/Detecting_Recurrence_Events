@@ -270,7 +270,7 @@ pred4_recurrenceyesno=p[2]
 graph3=producesurvgraphforIthrec(timeofrecurence,recurrenceyesno,pred1_timeofrecurence,pred1_recurrenceyesno,pred2_timeofrecurence,pred2_recurrenceyesno,pred3_timeofrecurence,pred3_recurrenceyesno,pred4_timeofrecurence,pred4_recurrenceyesno,Irec)
 ```
 
-The below cell finally patches the 3 graphs together into a single figure like that seen in the paper. We hope this code aids comparison between models for cancer recurrent event detection models.
+The below cell finally patches the 3 graphs together into a single figure like that seen in the paper. We hope this code aids comparison between models for cancer recurrence event detection models.
 
 ```{r fig.width=21, fig.height=30}
 patchwork<-(graph1 / theme(plot.margin = unit(c(100,0,0,0), "pt"))) / (graph2 / theme(plot.margin = unit(c(50,0,0,0), "pt"))) / (graph3 / theme(plot.margin = unit(c(50,0,0,0), "pt"))) 
