@@ -48,7 +48,7 @@ The Logistic Regression model is a Generalized Linear model as found in base R.
 ### Preprocessing Your Data for Input
 The inputs to these models are the days between the current and previous chemotherapy treatment(Days.Btw.Treatments), the Drug Regimen Group Label of that treatment (Drug.Group) and finally the Drug Regimen Group Label of the previous treatment (Previous.Drug.Group).
 
-If you have a Chemotherapy treatment table like the below example.
+If you have a Chemotherapy treatment table like the below example and know the date of diagnosis for the patients cancers.
 
 |PatientID|Chemotherapy.Cycle.Start.Date|Regimen.Label|
 |---|---|---|
@@ -63,7 +63,7 @@ If you have a Chemotherapy treatment table like the below example.
 |B|29/03/2023|PACLITAX/CARBO (C)|
 
 
-You will need to convert it to a table like that below, using the grouping of chemotherapy regimens, to produce the relevant inputs for the models so that they may identify recurrence events.
+You will need to convert it to a table like that below, using the grouping of chemotherapy regimens, to produce the relevant inputs for the models so that they may identify recurrence events. The days since diagnosis column is used by the ProdcueSurvivalCurve script. It is not used as input for the models. 
 
 |PatientID|Days.After.Diagnosis|Days.Btw.Treatments|Drug.Group|Previous.Drug.Group|
 |---|---|---|---|---|
