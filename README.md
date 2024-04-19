@@ -65,17 +65,17 @@ If you have a Chemotherapy treatment table like the below example.
 
 You will need to convert it to a table like that below, using the grouping of chemotherapy regimens, to produce the relevant inputs for the models so that they may identify recurrence events.
 
-|PatientID|Days.Btw.Treatments|Drug.Group|Previous.Drug.Group|
-|---|---|---|---|
-|A|0|Carboplatin|NaN|
-|A|21|Carboplatin|Carboplatin|
-|A|21|Carboplatin|Carboplatin|
-|A|21|Carboplatin|Carboplatin|
-|A|100|Bevacizumab|Carboplatin|
-|A|21|Bevacizumab|Bevacizumab|
-|B|0|Carboplatin/Paclitaxel|NaN|
-|B|28|Carboplatin/Paclitaxel|Carboplatin/Paclitaxel|
-|B|28|Carboplatin/Paclitaxel|Carboplatin/Paclitaxel|
+|PatientID|Days.After.Diagnosis|Days.Btw.Treatments|Drug.Group|Previous.Drug.Group|
+|---|---|---|---|---|
+|A|7|0|Carboplatin|NaN|
+|A|28|21|Carboplatin|Carboplatin|
+|A|49|21|Carboplatin|Carboplatin|
+|A|70|21|Carboplatin|Carboplatin|
+|A|170|100|Bevacizumab|Carboplatin|
+|A|191|21|Bevacizumab|Bevacizumab|
+|B|14|0|Carboplatin/Paclitaxel|NaN|
+|B|42|28|Carboplatin/Paclitaxel|Carboplatin/Paclitaxel|
+|B|70|28|Carboplatin/Paclitaxel|Carboplatin/Paclitaxel|
 
 
 ### Predicting with the Machine Learning Models
