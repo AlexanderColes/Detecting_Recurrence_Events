@@ -1,0 +1,282 @@
+---
+title: "ProduceSurvivalCurves"
+output: html_document
+date: "2023-01-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+This R notebook was written to produce Kaplan-Meier Time to Next Treatment (TTNT) survival curves using the models developed in the paper "Evaluation of machine learning methods for the retrospective detection of ovarian cancer recurrences from chemotherapy data. 
+
+We are unable to share the data used to produce the results and graphs shown in the paper however we share the finished models and this example code to encourage their use by other researchers and those interested in detecting recurrences in large data sets.
+
+
+```{r load in libraries}
+library(rpart)
+library(rpart.plot)
+library(caret)
+library("randomForest")
+library("dagR")
+library(survival)
+library(party)
+library("survminer")
+library(ggplot2)
+library(ggsurvfit)
+library("patchwork")
+```
+
+The chemotherapy data used in our research was processed for 3 features used in our recurrence event detection models.
+
+These features include the days between current and previous chemotherapy treatment(Days.Btw.Treatments), the Drug Regimen Group Label of that treatment (Drug.Group) and finally the Drug Regimen Group Label of the previous treatment (Previous.Drug.Group). You must map any chemotherapy drugs in new data into the drugs groups found in the DrugGroups.csv file within the repo to use the recurrence event detection models.
+
+
+```{r load in data}
+chemoeventdata <- read.csv(file = 'DecTreeEventData_df.csv')
+chemoeventdata$Label = as.factor(chemoeventdata$Label)
+chemoeventdata$Drug= as.factor(chemoeventdata$Drug)
+chemoeventdata$Previous.Drug = as.factor(chemoeventdata$Previous.Drug)
+chemoeventdata$Drug.Group = as.factor(chemoeventdata$Drug.Group)
+chemoeventdata$Previous.Drug.Group= as.factor(chemoeventdata$Previous.Drug.Group)
+chemoeventdata$Subsequent.Drug.Group= as.factor(chemoeventdata$Subsequent.Drug.Group)
+```
+
+
+This cell was used to read in the test set patients ids to split the data into the training and test set.
+```{r split data}
+y <- vector(mode="numeric")
+testdatapatientid<- read.delim("testdatapatientid.txt",sep =" ")
+#my_data <- read.table(file.choose(), sep ="|", header = TRUE, dec =".")
+for (i in unique(chemoeventdata$PatientID)){
+  #n=n+1
+  if (i %in% testdatapatientid$x){
+  x=which(chemoeventdata$PatientID==i)
+  y<-append(y,x)}
+}
+train_data1 = chemoeventdata[-y, ]; test_data1 = chemoeventdata[y, ]
+print(length(unique(train_data1$PatientID)))
+print(length(unique(test_data1$PatientID)))
+```
+
+Read in trained models
+```{r read in models}
+mod1 <- readRDS("FinalRandomForestModel.rds")
+mod2 <- readRDS("FinalConditionalInferenceTreeModel.rds")
+mod3 <- readRDS("FinalDecisionTreeModel.rds")
+mod4 <- readRDS("FinalLogisticRegressionModel.rds")
+```
+
+Use trained models to identify changes in line of therapy which were interpreted as proxies for the dates of recurrence of diagnosis.
+```{r get event classifications from models}
+pred1 = predict(mod1, newdata=test_data1, type="response")
+pred2 = predict(mod2, newdata=test_data1, type="response")
+pred3 = predict(mod3, newdata=test_data1, type="class")
+pred4 = round(predict(mod4, newdata=test_data1, type="response"))
+```
+
+
+This function takes in the binary classifications of the treatment events. For patients that had a recurrence event identified from their treatment events, it records the time of diagnosis of their first recurrence event. For patients who did bot have any recurrence events identified by a model, it records the time of their last event as a time for censoring.
+```{r first recurrence all models}
+producetimetofirstrec<- function(pred,test_data1){
+#create empty vectors to save survival time and event/censored status
+pred_timeofrecurence <- vector(mode="numeric")
+pred_recurrenceyesno <- vector(mode="numeric")
+
+  for (i in unique(test_data1$PatientID)){
+x=which(test_data1$PatientID==i)
+y1=pred[min(x):max(x)]
+y1=as.numeric(as.character(y1))
+#set time of rec value as the maximum time so if no recurrence is identified/recorded then the time of censoring will be the last time a patient is treated
+tofr=test_data1$Days.After.Diagnosis[max(x)]
+r=0
+if (1%in%y1){
+  r=1
+  I=min(which(y1 == 1))
+  #if a recurrence event is identified/recorded then get the days after diagnosis of the recurrence event
+  tofr=test_data1$Days.After.Diagnosis[min(x) + I - 1]-test_data1$Days.After.Diagnosis[min(x)]
+}
+pred_timeofrecurence <- append(pred_timeofrecurence,tofr)
+pred_recurrenceyesno <- append(pred_recurrenceyesno,r)
+}
+return(list(pred_timeofrecurence,pred_recurrenceyesno))
+}
+```
+t
+This function takes in the binary classifications of the treatment events and calculates the time since last identified recurrence event to the Ith identified recurrence event. For patients that did have an Ith-1 recurrence event but did not have an Ith recurrence event, the function records the time of their last event for censoring.
+```{r Ith recurrence all models}
+producetimetoIthrec<- function(pred,test_data1,Irec){
+pred_timeofrecurence <- vector(mode="numeric")
+pred_recurrenceyesno <- vector(mode="numeric")
+prevrec=0
+for (i in unique(test_data1$PatientID)){
+x=which(test_data1$PatientID==i)
+y1=pred[min(x):max(x)]
+y1=as.numeric(as.character(y1))
+if (sum(y1)>=(Irec-1)){
+
+#y2=pred[min(x):max(x)]
+I=which(y1 == 1)[Irec-1] #get index of recurrence prior to current recurrence
+tofr=test_data1$Days.After.Diagnosis[max(x)]-test_data1$Days.After.Diagnosis[min(x) + I- 1]
+r=0
+
+if ((sum(y1)>=Irec)==TRUE){
+r=1
+prevrec=which(y1 == 1)[Irec-1]
+I=which(y1 == 1)[Irec]
+tofr=(test_data1$Days.After.Diagnosis[min(x) + I- 1])-(test_data1$Days.After.Diagnosis[min(x) + prevrec - 1])}
+pred_timeofrecurence  <- append(pred_timeofrecurence ,tofr)
+pred_recurrenceyesno <- append(pred_recurrenceyesno,r)
+}}
+return(list(pred_timeofrecurence,pred_recurrenceyesno))}
+```
+
+This Function takes in the survival data produced by the above functions, so the the status of whether an event was found and the time of the event, or the time of censoring if no event was found for the 4 models and the chart review known dates of recurrence events and censoring and produces a Kaplan-Meier survival graph for the Ith recurrence event.
+
+```{r}
+producesurvgraphforIthrec<-function(timeofrecurence,recurrenceyesno,pred1_timeofrecurence,pred1_recurrenceyesno,pred2_timeofrecurence,pred2_recurrenceyesno,pred3_timeofrecurence,pred3_recurrenceyesno,pred4_timeofrecurence,pred4_recurrenceyesno,Irec){
+ChartPred <- c(rep(0, length(timeofrecurence)))
+
+Chart <- data.frame(time = timeofrecurence,status = recurrenceyesno,ChartPred=ChartPred)
+colnames(Chart)[1] <- "time"
+colnames(Chart)[2] <- "status"
+ChartPred <- c(rep(1, length(pred1_timeofrecurence)))
+
+Pred1 <- data.frame(time = pred1_timeofrecurence,status = pred1_recurrenceyesno,ChartPred=ChartPred)
+colnames(Pred1)[1] <- "time"
+colnames(Pred1)[2] <- "status"
+ChartPred <- c(rep(2, length(pred2_timeofrecurence)))
+
+Pred2 <- data.frame(time = pred2_timeofrecurence,status = pred2_recurrenceyesno,ChartPred=ChartPred)
+colnames(Pred2)[1] <- "time"
+colnames(Pred2)[2] <- "status"
+ChartPred <- c(rep(3, length(pred3_timeofrecurence)))
+
+Pred3 <- data.frame(time = pred3_timeofrecurence,status = pred3_recurrenceyesno,ChartPred=ChartPred)
+colnames(Pred3)[1] <- "time"
+colnames(Pred3)[2] <- "status"
+ChartPred <- c(rep(4, length(pred4_timeofrecurence)))
+
+Pred4 <- data.frame(time = pred4_timeofrecurence,status = pred4_recurrenceyesno,ChartPred=ChartPred)
+colnames(Pred4)[1] <- "time"
+colnames(Pred4)[2] <- "status"
+combinedChartPred <- rbind(Pred1,Pred2,Pred3,Pred4)
+
+Chart['time']=Chart$time/(365.25/12)
+combinedChartPred['time']=combinedChartPred$time/(365.25/12)
+
+kmchartmodel<-survfit2(Surv(Chart$time ,Chart$status)~Chart$ChartPred )
+
+time <- kmchartmodel$time
+lower <- kmchartmodel$lower
+upper <- kmchartmodel$upper
+data<- data.frame(time, lower, upper)
+
+combinedChartPred$ChartPred[combinedChartPred$ChartPred==0]<-"Manual Chart Reviewed"
+combinedChartPred$ChartPred[combinedChartPred$ChartPred==1]<-"Random Forest Predicted"
+combinedChartPred$ChartPred[combinedChartPred$ChartPred==2]<-"Conditional Inference Tree Predicted"
+combinedChartPred$ChartPred[combinedChartPred$ChartPred==3]<-"Decision Tree Predicted"
+combinedChartPred$ChartPred[combinedChartPred$ChartPred==4]<-"Logistic Regression Predicted"
+combinedChartPred$ChartPred=as.factor(combinedChartPred$ChartPred)
+kmpredmodel<-survfit2(Surv(combinedChartPred$time ,combinedChartPred$status)~combinedChartPred$ChartPred)
+
+xlabels=list('Time (Months Since Start of First Line of Treatment)','Time (Months Since Start of Second Line of Treatment)','Time (Months Since Start of Third Line of Treatment)','Time (Months Since Start of Fourth Line of Treatment)','Time (Months Since Start of Fifth Line of Treatment)')
+ylabels=list("Probability of No \n Second Line of Treatment","Probability of No \n Third Line of Treatment","Probability of No \n Fourth Line of Treatment","Probability of No \n Fifth Line of Treatment","Probability of No \n Sixth Line of Treatment")
+
+graph<-survfit2(Surv(combinedChartPred$time ,combinedChartPred$status)~combinedChartPred$ChartPred) %>% 
+  ggsurvfit(size=1.2) + 
+  scale_color_manual(values=c("black","red","green","magenta",rgb(0, 0.8, 0.8)),breaks=c('Manual Chart Reviewed','Random Forest Predicted', 'Conditional Inference Tree Predicted', 'Decision Tree Predicted','Logistic Regression Predicted')) +
+  scale_x_continuous(breaks = seq(0, 24, by = 3), limits=c(0,24)) + 
+  labs(#x='',y=''
+    x = xlabels[Irec],
+    y = ylabels[Irec],
+    legend=c("Manual Chart Reviewed","Random Forest Predicted","Conditional Inference Tree Predicted","Decision Tree Predicted","Logistic Regression Predicted")
+  )+ geom_ribbon(data = data,aes(x = time, ymin = lower, ymax = upper, fill = "Manual Chart Reviewed \n 95% Confidence Intervals"), alpha=0.4,inherit.aes=FALSE)+scale_fill_manual("",values="grey70")+
+theme(legend.position = "bottom",legend.key.width = unit(10/50, "inch"),legend.spacing.x = unit(4/100, 'inch'), legend.text=element_text(size=30),axis.title = element_text(size = 30),axis.text = element_text(size = 30))+
+guides(col = guide_legend(ncol = 2))
+return(graph)
+}
+```
+
+Here we put the above functions into action, identifying the days since diagnosis for model identified first, second and third recurrence events. This code can be extended to further recurrences if necessary.
+
+```{r}
+Irec=1
+p=producetimetofirstrec(test_data1$Label,test_data1)
+timeofrecurence=p[1]
+recurrenceyesno=p[2]
+
+p=producetimetofirstrec(pred1,test_data1)
+pred1_timeofrecurence=p[1]
+pred1_recurrenceyesno=p[2]
+
+p=producetimetofirstrec(pred2,test_data1)
+pred2_timeofrecurence=p[1]
+pred2_recurrenceyesno=p[2]
+
+p=producetimetofirstrec(pred3,test_data1)
+pred3_timeofrecurence=p[1]
+pred3_recurrenceyesno=p[2]
+
+p=producetimetofirstrec(pred4,test_data1)
+pred4_timeofrecurence=p[1]
+pred4_recurrenceyesno=p[2]
+
+graph1=producesurvgraphforIthrec(timeofrecurence,recurrenceyesno,pred1_timeofrecurence,pred1_recurrenceyesno,pred2_timeofrecurence,pred2_recurrenceyesno,pred3_timeofrecurence,pred3_recurrenceyesno,pred4_timeofrecurence,pred4_recurrenceyesno,Irec)
+
+Irec=2
+p=producetimetoIthrec(test_data1$Label,test_data1,Irec)
+timeofrecurence=p[1]
+recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred1,test_data1,Irec)
+pred1_timeofrecurence=p[1]
+pred1_recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred2,test_data1,Irec)
+pred2_timeofrecurence=p[1]
+pred2_recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred3,test_data1,Irec)
+pred3_timeofrecurence=p[1]
+pred3_recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred4,test_data1,Irec)
+pred4_timeofrecurence=p[1]
+pred4_recurrenceyesno=p[2]
+
+graph2=producesurvgraphforIthrec(timeofrecurence,recurrenceyesno,pred1_timeofrecurence,pred1_recurrenceyesno,pred2_timeofrecurence,pred2_recurrenceyesno,pred3_timeofrecurence,pred3_recurrenceyesno,pred4_timeofrecurence,pred4_recurrenceyesno,Irec)
+
+Irec=3
+p=producetimetoIthrec(test_data1$Label,test_data1,Irec)
+timeofrecurence=p[1]
+recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred1,test_data1,Irec)
+pred1_timeofrecurence=p[1]
+pred1_recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred2,test_data1,Irec)
+pred2_timeofrecurence=p[1]
+pred2_recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred3,test_data1,Irec)
+pred3_timeofrecurence=p[1]
+pred3_recurrenceyesno=p[2]
+
+p=producetimetoIthrec(pred4,test_data1,Irec)
+pred4_timeofrecurence=p[1]
+pred4_recurrenceyesno=p[2]
+
+graph3=producesurvgraphforIthrec(timeofrecurence,recurrenceyesno,pred1_timeofrecurence,pred1_recurrenceyesno,pred2_timeofrecurence,pred2_recurrenceyesno,pred3_timeofrecurence,pred3_recurrenceyesno,pred4_timeofrecurence,pred4_recurrenceyesno,Irec)
+```
+
+The below cell finally patches the 3 graphs together into a single figure like that seen in the paper. We hope this code aids comparison between models for cancer recurrent event detection models.
+
+```{r fig.width=21, fig.height=30}
+patchwork<-(graph1 / theme(plot.margin = unit(c(100,0,0,0), "pt"))) / (graph2 / theme(plot.margin = unit(c(50,0,0,0), "pt"))) / (graph3 / theme(plot.margin = unit(c(50,0,0,0), "pt"))) 
+
+patchwork + plot_layout(guides = "collect") + plot_annotation(tag_levels = 'A') &
+  theme(legend.position = 'bottom',
+        legend.direction = 'horizontal',plot.tag=element_text(size = 50),plot.tag.position = c(0.1, 1.05))
+```
+
