@@ -4,7 +4,7 @@ This repo contains the models developed in the paper titled "Evaluation of Machi
 
 ## Models
 
-We developed four machine learning models commonly used in the literature. These were, a Random Forest, a Decision Tree, a Conditional Inference Tree and a Logistic Regression model to identify recurrence events from chemotherapy treatment data.
+We developed four machine learning models commonly used in the literature. These were a Random Forest, a Decision Tree, a Conditional Inference Tree and a Logistic Regression model to identify recurrence events from chemotherapy treatment data.
 
 The models’ final combination of candidate variables were chosen using 3 iterations of 10-fold cross-validation. The candidate models for each ML method that achieved the highest F1 score for identifying recurrence events all shared the same three candidate variables of: days between current and previous chemotherapy treatment, the Drug Regimen Group Label of that treatment and finally the Drug Regimen Group Label of the previous treatment.
 
@@ -23,7 +23,7 @@ The method of recording the Drug Regimen for each treatment within a patient's E
 
 ## Using our Models
 ### Loading Models
-The models were developed in R studio and are saved as RDS objetcs. Once downloaded You can load the models into R using the following R code.
+The models were developed in R studio and are saved as RDS objects. Once downloaded You can load the models into R using the following R code.
 ``` R
 FinalRandomForestModel <- readRDS("FinalRandomForestModel.rds")
 FinalConditionalInferenceTreeModel <- readRDS("FinalConditionalInferenceTreeModel.rds")
@@ -35,7 +35,7 @@ The Random Forest uses the randomForest package.
 ```R
 library(randomForest)
 ```
-The Decision Tree useus the rpart package.
+The Decision Tree uses the rpart package.
 ```R
 library(rpart)
 ```
@@ -48,7 +48,7 @@ The Logistic Regression model is a Generalized Linear model as found in base R.
 ### Preprocessing Your Data for Input
 The inputs to these models are the days between the current and previous chemotherapy treatment(Days.Btw.Treatments), the Drug Regimen Group Label of that treatment (Drug.Group) and finally the Drug Regimen Group Label of the previous treatment (Previous.Drug.Group).
 
-If you have a Chemotherapy treatment table like the below example and know the date of diagnosis for the patients cancers.
+If you have a Chemotherapy treatment table like the below example and know the date of diagnosis for the patients' cancers...
 
 |PatientID|Chemotherapy.Cycle.Start.Date|Regimen.Label|
 |---|---|---|
@@ -81,8 +81,8 @@ You will need to convert it to a table like that below, using the grouping of ch
 ### Predicting with the Machine Learning Models
 
 Once you have preprocessed your data into the required input fields you can use the trained ML models to identify recurrence events in your data using the code below.
-The tree-based models can be used to give a classification label of 1 = recurrence event and 0 = not a recurrence event. Below the three tree based models are providing a classification label due to their repsonse "type" being defined as repsonse and class respectively.
-The Logistic Rgeression models outputs a probability of each event being a recurrence event, the round function surrounding the predict function applies a threshold of 0.5 so that any probability greater than or equal to 0.5 is classified as a recurrence event.
+The tree-based models can be used to give a classification label of 1 = recurrence event and 0 = not a recurrence event. Below the three tree-based models are providing a classification label due to their response "type" being defined as response and class respectively.
+The Logistic Regression model outputs a probability of each event being a recurrence event, the round function surrounding the predict function applies a threshold of 0.5 so that any probability greater than or equal to 0.5 is classified as a recurrence event.
 
 ```R
 pred1 = predict(FinalRandomForestModel, newdata=YourDataFrame, type="response")
