@@ -1,6 +1,6 @@
 ## Introduction
 This repo contains the models developed in the paper titled "Evaluation of Machine Learning Methods for the Retrospective Detection of Ovarian Cancer Recurrences from Chemotherapy Data".
- Please see the paper for background on their development and results.
+ Please see the paper for background on their development and results. https://www.sciencedirect.com/science/article/pii/S294982012400016X
 
 ## Models
 
